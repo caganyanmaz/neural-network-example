@@ -1,13 +1,15 @@
 #include "NeuralNetwork.h"
+#include <ctime>
 #include <cassert>
 #include <cmath>
 #include <random>
+#include <iostream>
+//#include "debug.h"
+
+#define VARIANCE_MULTIPLIER 100.0
+#define STEP_COUNT 1000
 #define DEBUGGING
 #include "debug.h"
-
-#define LOWER_BOUND -1.0
-#define UPPER_BOUND 1.0
-#define STEP_SIZE 1000
 
 
 inline double sigmoid(double x) { return 1 / (1 + exp(-x)); }
@@ -43,12 +45,19 @@ void NeuralNetwork::calculate_prefixes()
 
 void NeuralNetwork::randomize_network()
 {
-	std::uniform_real_distribution<double> unif(LOWER_BOUND, UPPER_BOUND);
-	std::default_random_engine re;
-	for (double& val : weights)
-		val = unif(re);
-	for (double& val : biases)
-		val = unif(re);
+	std::default_random_engine generator;
+	generator.seed(time(NULL));
+	for (int layer = 0; layer < get_layer_count() - 1; layer++)
+	{
+		std::normal_distribution<double> distribution(0, VARIANCE_MULTIPLIER / sqrt(static_cast<double>(layer_sizes[layer])));
+		for (int j = 0; j < layer_sizes[layer+1]; j++)
+		{
+			for (int i = 0; i < layer_sizes[layer]; i++)
+			{
+				weights[get_weight_index(layer, i, j)] = distribution(generator);
+			}
+		}
+	}
 }
 
 NeuralNetwork::NeuralNetwork(const std::vector<int>& layer_sizes) : layer_sizes(layer_sizes) 
@@ -74,7 +83,6 @@ NeuralNetwork::NeuralNetwork(std::istream& is)
 
 void NeuralNetwork::write_network_values(std::ostream& os)
 {
-	debug(errors);
 	os << layer_sizes.size() << "\n";
 	for (int layer_size : layer_sizes)
 		os << layer_size << "\n";
@@ -82,6 +90,7 @@ void NeuralNetwork::write_network_values(std::ostream& os)
 		os << weight << "\n";
 	for (double bias : biases)
 		os << bias << "\n";
+	std::cerr << errors << "\n";
 }
 
 
@@ -122,10 +131,13 @@ const std::vector<double> NeuralNetwork::output_result()
 	return res;
 }
 
+bool trained_before = false;
+
 void NeuralNetwork::train(const std::vector<std::vector<double>>& inputs, const std::vector<std::vector<double>>& answers) 
 {
 	std::vector<double> gradient_sum = calculate_gradient_sum(inputs, answers);
 	step_backwards(gradient_sum, 1);
+	trained_before = true;
 }
 
 std::vector<double> NeuralNetwork::calculate_gradient_sum(const std::vector<std::vector<double>>& inputs, const std::vector<std::vector<double>>& answers)
@@ -174,8 +186,12 @@ void NeuralNetwork::evaluate_output_neuron_derivatives(const std::vector<double>
 	{
 		int neuron_index = get_neuron_index(get_layer_count() - 1, i);
 		double diff = neurons[neuron_index] - answer[i];
+		if (answer[i] > 0.1)
+			diff *= 7;
 		// cost_contribution is diff^2 so the derivative is 2 * diff * 1 with respect to ith neuron in the layer
-		double derivative = 2 * diff * STEP_SIZE; // Making it bigger to make changes bigger
+		double derivative = 2 * diff * STEP_COUNT; // Making it bigger to make changes bigger
+		//if (trained_before &&  abs(diff) > 0.1)
+		//	debug(neurons[neuron_index], answer[i], derivative);
 		neuron_derivatives[neuron_index] = derivative;
 	}
 }
@@ -233,6 +249,7 @@ std::vector<double> NeuralNetwork::get_gradient()const
 	{
 		gradient[weight_derivatives.size() + i] = bias_derivatives[i];
 	}
+	debug(gradient);
 	return gradient;
 }
 
