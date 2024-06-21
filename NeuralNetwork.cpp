@@ -7,13 +7,11 @@
 //#include "debug.h"
 
 #define VARIANCE_MULTIPLIER 100.0
-#define STEP_COUNT 1000
 #define DEBUGGING
 #include "debug.h"
 
 
-inline double sigmoid(double x) { return 1 / (1 + exp(-x)); }
-//inline double dsigmoid(double x) { double sig = sigmoid(x); return sig * (1 - sig); }
+inline double ReLU(double x) { return std::max<double>(0, x); }
 
 
 int errors = 0;
@@ -118,8 +116,20 @@ void NeuralNetwork::evaluate_values()
 			double res = biases[get_bias_index(layer, i)];
 			for (int j = 0; j < layer_sizes[layer-1]; j++)
 				res += weights[get_weight_index(layer-1, j, i)] * neurons[get_neuron_index(layer-1, j)];
-			neurons[get_neuron_index(layer, i)] = sigmoid(res);
+			neurons[get_neuron_index(layer, i)] = ReLU(res);
 		}
+	}
+
+	// Calculate softmax
+	double softmax_sum = 0;
+	for (int i = 0; i < layer_sizes.back(); i++)
+	{
+		softmax_sum += neurons[get_neuron_index(get_layer_count()-1, i)];
+		neurons[get_neuron_index(get_layer_count()-1, i)] = exp(neurons[get_neuron_index(get_layer_count()-1, i)]);
+	}
+	for (int i = 0; i < layer_sizes.back(); i++)
+	{
+		neurons[get_neuron_index(get_layer_count()-1, i)] /= softmax_sum;
 	}
 }
 
@@ -182,17 +192,15 @@ void NeuralNetwork::evaluate_derivatives(const std::vector<double>& answer)
 
 void NeuralNetwork::evaluate_output_neuron_derivatives(const std::vector<double>& answer)
 {
+	double sum = 0;
+	int ll = get_layer_count()-1;
 	for (int i = 0; i < layer_sizes.back(); i++)
 	{
-		int neuron_index = get_neuron_index(get_layer_count() - 1, i);
-		double diff = neurons[neuron_index] - answer[i];
-		if (answer[i] > 0.1)
-			diff *= 7;
-		// cost_contribution is diff^2 so the derivative is 2 * diff * 1 with respect to ith neuron in the layer
-		double derivative = 2 * diff * STEP_COUNT; // Making it bigger to make changes bigger
-		//if (trained_before &&  abs(diff) > 0.1)
-		//	debug(neurons[neuron_index], answer[i], derivative);
-		neuron_derivatives[neuron_index] = derivative;
+		sum += (neurons[get_neuron_index(ll, i)] - answer[i]) * neurons[get_neuron_index(ll, i)];
+	}
+	for (int i = 0; i < layer_sizes.back(); i++)
+	{
+		neuron_derivatives[get_neuron_index(ll, i)] = 2 * neurons[get_neuron_index(ll, i)] * (neurons[get_neuron_index(ll, i)] - answer[i] - sum);
 	}
 }
 
@@ -233,9 +241,10 @@ void NeuralNetwork::evaluate_bias_derivatives_in_layer(int layer)
 
 double NeuralNetwork::get_neuron_preactivation_derivative_multiplier(int layer, int neuron)const
 {
-	double sig = neurons[get_neuron_index(layer, neuron)];
-	double dsig = sig * (1 - sig);
-	return neuron_derivatives[get_neuron_index(layer, neuron)] * dsig;
+	double relu = neurons[get_neuron_index(layer, neuron)];
+	if (relu > 0)
+		return 1;
+	return 0;
 }
 
 std::vector<double> NeuralNetwork::get_gradient()const
@@ -249,7 +258,6 @@ std::vector<double> NeuralNetwork::get_gradient()const
 	{
 		gradient[weight_derivatives.size() + i] = bias_derivatives[i];
 	}
-	debug(gradient);
 	return gradient;
 }
 

@@ -11,7 +11,7 @@ std::string s = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/()1{}[]?-_+~<>i!lI;:,^
 const int SIZE = 28;
 const int BATCH_SIZE = 1;
 const int DIGIT_COUNT = 10;
-const int BATCH_COUNT = 100;
+const int BATCH_COUNT = 1;
 const std::vector<int> default_layer_sizes = {784, 100, 100, 10};
 
 
