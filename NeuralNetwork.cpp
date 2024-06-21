@@ -6,13 +6,13 @@
 #include <iostream>
 //#include "debug.h"
 
-#define VARIANCE_MULTIPLIER 100.0
+#define VARIANCE_MULTIPLIER 1
 #define DEBUGGING
+#define STEP_SIZE 0.00001
 #include "debug.h"
 
 
 inline double ReLU(double x) { return std::max<double>(0, x); }
-
 
 int errors = 0;
 
@@ -124,9 +124,11 @@ void NeuralNetwork::evaluate_values()
 	double softmax_sum = 0;
 	for (int i = 0; i < layer_sizes.back(); i++)
 	{
-		softmax_sum += neurons[get_neuron_index(get_layer_count()-1, i)];
+
 		neurons[get_neuron_index(get_layer_count()-1, i)] = exp(neurons[get_neuron_index(get_layer_count()-1, i)]);
+		softmax_sum += neurons[get_neuron_index(get_layer_count()-1, i)];
 	}
+	
 	for (int i = 0; i < layer_sizes.back(); i++)
 	{
 		neurons[get_neuron_index(get_layer_count()-1, i)] /= softmax_sum;
@@ -146,7 +148,7 @@ bool trained_before = false;
 void NeuralNetwork::train(const std::vector<std::vector<double>>& inputs, const std::vector<std::vector<double>>& answers) 
 {
 	std::vector<double> gradient_sum = calculate_gradient_sum(inputs, answers);
-	step_backwards(gradient_sum, 1);
+	step_backwards(gradient_sum, STEP_SIZE);
 	trained_before = true;
 }
 
@@ -173,7 +175,9 @@ std::vector<double> NeuralNetwork::back_propogate(const std::vector<double>& inp
 		if (neurons[get_neuron_index(get_layer_count() - 1, i)] > neurons[get_neuron_index(get_layer_count() - 1, mx)])
 			mx = i;
 	if (answer[mx] < 0.5)
+	{
 		errors++;
+	}
 	evaluate_derivatives(answer);
 	return get_gradient();
 }
@@ -243,7 +247,7 @@ double NeuralNetwork::get_neuron_preactivation_derivative_multiplier(int layer, 
 {
 	double relu = neurons[get_neuron_index(layer, neuron)];
 	if (relu > 0)
-		return 1;
+		return neuron_derivatives[get_neuron_index(layer, neuron)];
 	return 0;
 }
 
@@ -268,12 +272,12 @@ void NeuralNetwork::step_backwards(const std::vector<double>& gradient, double s
 	for (int i = 0; i < weights.size(); i++)
 	{
 		weights[i] -= gradient[i] * step_size;
-		total_step_size += abs(gradient[i] * step_size);
+		total_step_size += std::abs(gradient[i] * step_size);
 	}
 	for (int i = 0; i < biases.size(); i++)
 	{
 		biases[i] -= gradient[weights.size() + i] * step_size;
-		total_step_size += abs(gradient[i] * step_size);
+		total_step_size += std::abs(gradient[i] * step_size);
 	}
-	std::cerr << total_step_size << "\n";
+	std::cerr << "changed: " << total_step_size << "\n";
 }
