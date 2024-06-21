@@ -2,15 +2,19 @@
 #include <cassert>
 #include <cmath>
 #include <random>
+#define DEBUGGING
+#include "debug.h"
 
-#define LOWER_BOUND -10
-#define UPPER_BOUND 10
-#define MOVEMENT 100
-#define STEP_SIZE 5
+#define LOWER_BOUND -1.0
+#define UPPER_BOUND 1.0
+#define STEP_SIZE 1000
 
 
 inline double sigmoid(double x) { return 1 / (1 + exp(-x)); }
 //inline double dsigmoid(double x) { double sig = sigmoid(x); return sig * (1 - sig); }
+
+
+int errors = 0;
 
 
 void NeuralNetwork::init()
@@ -70,6 +74,7 @@ NeuralNetwork::NeuralNetwork(std::istream& is)
 
 void NeuralNetwork::write_network_values(std::ostream& os)
 {
+	debug(errors);
 	os << layer_sizes.size() << "\n";
 	for (int layer_size : layer_sizes)
 		os << layer_size << "\n";
@@ -120,7 +125,7 @@ const std::vector<double> NeuralNetwork::output_result()
 void NeuralNetwork::train(const std::vector<std::vector<double>>& inputs, const std::vector<std::vector<double>>& answers) 
 {
 	std::vector<double> gradient_sum = calculate_gradient_sum(inputs, answers);
-	step_backwards(gradient_sum, STEP_SIZE);
+	step_backwards(gradient_sum, 1);
 }
 
 std::vector<double> NeuralNetwork::calculate_gradient_sum(const std::vector<std::vector<double>>& inputs, const std::vector<std::vector<double>>& answers)
@@ -141,6 +146,12 @@ std::vector<double> NeuralNetwork::back_propogate(const std::vector<double>& inp
 {
 	write_input(input);
 	evaluate_values();
+	int mx = 0;
+	for (int i = 1; i < layer_sizes.back(); i++)
+		if (neurons[get_neuron_index(get_layer_count() - 1, i)] > neurons[get_neuron_index(get_layer_count() - 1, mx)])
+			mx = i;
+	if (answer[mx] < 0.5)
+		errors++;
 	evaluate_derivatives(answer);
 	return get_gradient();
 }
@@ -164,7 +175,7 @@ void NeuralNetwork::evaluate_output_neuron_derivatives(const std::vector<double>
 		int neuron_index = get_neuron_index(get_layer_count() - 1, i);
 		double diff = neurons[neuron_index] - answer[i];
 		// cost_contribution is diff^2 so the derivative is 2 * diff * 1 with respect to ith neuron in the layer
-		double derivative = 2 * diff;
+		double derivative = 2 * diff * STEP_SIZE; // Making it bigger to make changes bigger
 		neuron_derivatives[neuron_index] = derivative;
 	}
 }
@@ -228,12 +239,16 @@ std::vector<double> NeuralNetwork::get_gradient()const
 
 void NeuralNetwork::step_backwards(const std::vector<double>& gradient, double step_size)
 {
+	double total_step_size = 0;
 	for (int i = 0; i < weights.size(); i++)
 	{
 		weights[i] -= gradient[i] * step_size;
+		total_step_size += abs(gradient[i] * step_size);
 	}
 	for (int i = 0; i < biases.size(); i++)
 	{
 		biases[i] -= gradient[weights.size() + i] * step_size;
+		total_step_size += abs(gradient[i] * step_size);
 	}
+	std::cerr << total_step_size << "\n";
 }

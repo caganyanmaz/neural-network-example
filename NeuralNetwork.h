@@ -37,9 +37,9 @@ private:
 	double get_neuron_preactivation_derivative_multiplier(int layer, int neuron)const;
 	std::vector<double> get_gradient()const;
 	void step_backwards(const std::vector<double>& gradient, double step_size);
-	inline int get_neuron_index(int layer, int pos) const { return ( (layer == 0) ? 0 : neuron_count_prefix[layer-1]) + pos; }
-	inline int get_weight_index(int layer, int left_pos, int right_pos) { return ( (layer == 0) ? 0 : weight_count_prefix[layer-1]) + right_pos * layer_sizes[layer] + left_pos; }
+	inline int get_neuron_index(int layer, int pos) const { return neuron_count_prefix[layer] + pos; }
+	inline int get_weight_index(int layer, int left_pos, int right_pos) { return weight_count_prefix[layer] + right_pos * layer_sizes[layer] + left_pos; }
 	inline int get_layer_count() const { return layer_sizes.size(); }
-	inline int get_bias_index(int layer, int pos) const { return pos + neuron_count_prefix[layer-1] - layer_sizes[0]; }
+	inline int get_bias_index(int layer, int pos) const { return pos + neuron_count_prefix[layer] - layer_sizes[0]; }
 	inline int get_gradient_size() const { return weights.size() + biases.size(); }
 };
